@@ -152,7 +152,7 @@ class Pipe:
         rep_pen: float = Field(default=1.07)
         rep_pen_range: int = Field(default=360)
         rep_pen_slope: float = Field(default=0.7)
-        stop_sequence: List[str] = Field(default=["### Instruction:", "### Response:"])
+        stop_sequence: List[str] = Field(default=["### Instruction:", "### Response:","<|im_start|>","<|im_end|>","[INST]","[/INST]"])
 
 
 
