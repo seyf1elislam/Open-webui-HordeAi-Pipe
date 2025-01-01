@@ -2,12 +2,11 @@
 title: HodeAI-pipe
 author: seyf1elislam
 author_url: https://github.com/seyf1elislam
-version: 0.1
+version: 0.2
 """
 
 from pydantic import BaseModel, Field
 import requests
-from pprint import pp
 import time
 from typing import List, Dict
 
@@ -47,36 +46,41 @@ class HordeFunctions:
 
         return models_list
 
-    def generate_text(self, prompt, model):
+    def generate_text(self, prompt, model,params=None):
         url = f"{self.base_url}/generate/text/async"
+        default_params = {
+        "n": 1,
+        "max_context_length": 1800,
+        "max_length": 200,
+        "rep_pen": 1.07,
+        "temperature": 0.75,
+        "top_p": 0.92,
+        "top_k": 100,
+        "top_a": 0,
+        "typical": 1,
+        "tfs": 1,
+        "rep_pen_range": 360,
+        "rep_pen_slope": 0.7,
+        "sampler_order": [6, 0, 1, 3, 4, 2, 5],
+        "use_default_badwordsids": False,
+        "stop_sequence": ["### Instruction:", "### Response:"],
+        "min_p": 0,
+        "dynatemp_range": 0,
+        "dynatemp_exponent": 1,
+        "smoothing_factor": 0,
+    }
+        if params:
+            default_params.update(params)
+            
         body = {
             "prompt": prompt,
-            "params": {
-                "n": 1,
-                "max_context_length": 1800,
-                "max_length": 200,
-                "rep_pen": 1.07,
-                "temperature": 0.75,
-                "top_p": 0.92,
-                "top_k": 100,
-                "top_a": 0,
-                "typical": 1,
-                "tfs": 1,
-                "rep_pen_range": 360,
-                "rep_pen_slope": 0.7,
-                "sampler_order": [6, 0, 1, 3, 4, 2, 5],
-                "use_default_badwordsids": False,
-                "stop_sequence": ["### Instruction:", "### Response:"],
-                "min_p": 0,
-                "dynatemp_range": 0,
-                "dynatemp_exponent": 1,
-                "smoothing_factor": 0,
-            },
+            "params": default_params,
             "models": [model],
             "workers": [],
         }
         response = requests.post(url, headers=self.headers, json=body)
         return response.json()
+        
 
     def get_status(self, id):
         status_url = f"{self.base_url}/generate/text/status/{id}"
@@ -84,6 +88,7 @@ class HordeFunctions:
         return response.json()
 
 
+# TODO add chatml template /mistral/l3 ..etc
 def format_messages_to_markdown(messages: List[Dict[str, str]]) -> str:
     result = []
 
@@ -97,8 +102,19 @@ def format_messages_to_markdown(messages: List[Dict[str, str]]) -> str:
 
 class Pipe:
     class Valves(BaseModel):
+        # TODO add  constrains for the values
         # MODEL_ID: str = Field(default="")
-        HORDE_KEY: str = Field(default="")
+        HORDE_KEY: str = Field(default="0000000000")
+        max_context_length: int = Field(default=4096)
+        max_length: int = Field(default=200)
+        temperature: float = Field(default=0.75, ge=0, le=2)
+        top_p: float = Field(default=0.92)
+        top_k: int = Field(default=100)
+        rep_pen: float = Field(default=1.07)
+        rep_pen_range: int = Field(default=360)
+        rep_pen_slope: float = Field(default=0.7)
+        stop_sequence: List[str] = Field(default=["### Instruction:", "### Response:"])
+
 
     def __init__(self):
         self.valves = self.Valves()
@@ -118,9 +134,24 @@ class Pipe:
         print(f"Model id : {model_id}")
         
 
+        # Get parameters from valves
+        params = {
+            "max_context_length": self.valves.max_context_length,
+            "max_length": self.valves.max_length,
+            "temperature": self.valves.temperature,
+            "top_p": self.valves.top_p,
+            "top_k": self.valves.top_k,
+            "rep_pen": self.valves.rep_pen,
+            "rep_pen_range": self.valves.rep_pen_range,
+            "rep_pen_slope": self.valves.rep_pen_slope,
+            "stop_sequence": self.valves.stop_sequence,
+        }
+
         try:
             response = self.horde.generate_text(
-                format_messages_to_markdown(body["messages"]), model_id
+                format_messages_to_markdown(body["messages"]), 
+                model_id,
+                params
             )
             task_id = response["id"]
 
