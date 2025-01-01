@@ -12,7 +12,7 @@ from typing import List, Dict
 
 
 class HordeFunctions:
-    def __init__(self):
+    def __init__(self, api_key="0000000000"):
         self.base_url = "https://aihorde.net/api/v2"
         self.headers = {
             "accept": "*/*",
@@ -26,7 +26,7 @@ class HordeFunctions:
             "sec-fetch-site": "cross-site",
             "referrer": "https://lite.koboldai.net/",
             "referrerPolicy": "strict-origin-when-cross-origin",
-            "apikey": "0000000000",
+            "apikey": api_key,
         }
 
     def get_workers(self):
@@ -159,7 +159,7 @@ class Pipe:
 
     def __init__(self):
         self.valves = self.Valves()
-        self.horde = HordeFunctions()
+        self.horde = HordeFunctions(api_key=self.valves.HORDE_KEY)
         self.models_list = self.horde.get_models_list()
 
     def pipes(self):
