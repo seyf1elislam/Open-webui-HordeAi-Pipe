@@ -1,8 +1,8 @@
 """
-title: HodeAI-pipe
+title: HordeAI-pipe
 author: seyf1elislam
 author_url: https://github.com/seyf1elislam
-version: 0.2
+version: 0.2.1
 """
 
 from pydantic import BaseModel, Field
@@ -88,16 +88,54 @@ class HordeFunctions:
         return response.json()
 
 
-# TODO add chatml template /mistral/l3 ..etc
-def format_messages_to_markdown(messages: List[Dict[str, str]]) -> str:
+templates = [
+     {
+        "name": "chatml",
+        "user_prefix":"<|im_start|> user",
+        "user_suffix":"<|im_end|>",
+        "assistant_prefix":"<|im_start|> assistant",
+        "assistant_suffix":"<|im_end|>",
+        "system_prefix":"<|im_start|> system",
+        "system_suffix":"<|im_end|>",
+    },
+    {
+        "name": "alpaca",
+        "user_prefix":"## Instruction",
+        "user_suffix":"",
+        "assistant_prefix":"## Response",
+        "assistant_suffix":"",
+        "system_prefix":"## System",
+        "system_suffix":"",
+    },
+    {
+        "name": "mistral",
+        "user_prefix":"[INST]",
+        "user_suffix":"",
+        "assistant_prefix":"[/INST]",
+        "assistant_suffix":"<s>",
+        "system_prefix":"[INST]",
+        "system_suffix":"[/INST]</s>",
+    },
+   
+]
+
+def format_messages_to_markdown(messages: List[Dict[str, str]],format :str ="chatml" ) -> str:
     result = []
+    template = templates[0]
+    for t in templates:
+        if t["name"] == format:
+            template = t
+            break
 
     for message in messages:
-        result.append(f"## {message['role'].capitalize()}")
-        result.append(message["content"])
-        result.append("")  # Empty line for spacing
+        if message['role'].lower() == "user":
+            result.append(template["user_prefix"] + "\n" + message["content"] + "\n" + template["user_suffix"])
+        elif message['role'].lower() == "system":
+            result.append(template["system_prefix"] + "\n" + message["content"] + "\n" + template["system_suffix"])
+        elif message['role'].lower() == "assistant":
+            result.append(template["assistant_prefix"] + "\n" + message["content"] + "\n" + template["assistant_suffix"])
 
-    return "\n".join(result).strip()
+    return "\n".join(result) #.strip()
 
 
 class Pipe:
@@ -105,6 +143,7 @@ class Pipe:
         # TODO add  constrains for the values
         # MODEL_ID: str = Field(default="")
         HORDE_KEY: str = Field(default="0000000000")
+        chat_template: str = Field(default="chatml")
         max_context_length: int = Field(default=4096)
         max_length: int = Field(default=200)
         temperature: float = Field(default=0.75, ge=0, le=2)
@@ -114,6 +153,8 @@ class Pipe:
         rep_pen_range: int = Field(default=360)
         rep_pen_slope: float = Field(default=0.7)
         stop_sequence: List[str] = Field(default=["### Instruction:", "### Response:"])
+
+
 
 
     def __init__(self):
@@ -149,7 +190,8 @@ class Pipe:
 
         try:
             response = self.horde.generate_text(
-                format_messages_to_markdown(body["messages"]), 
+                format_messages_to_markdown(body["messages"],
+                                            self.valves.chat_template), 
                 model_id,
                 params
             )
